@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Hitster Festival Edition</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121212">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Hitster">
+    <link rel="apple-touch-icon" href="icon-180.png">
+
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@700&display=swap" rel="stylesheet">
+
+    <!-- Lector de QR (funciona en iPhone y Android) -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #0a0a0a;
+            --card-bg: #181818;
+            --spotify-green: #1DB954;
+            --spotify-green-hover: #1ed760;
+            --danger-red: #e50914;
+            --danger-red-hover: #f6121d;
+            --purple: #7c4dff;
+            --purple-hover: #9170ff;
+            --text-main: #ffffff;
+            --text-muted: #a7a7a7;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #121212;
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.5s ease;
+        }
+
+        @keyframes festival-bg {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        body.playing-bg {
+            background: linear-gradient(45deg, #0a0a0a, #053315, #1DB954, #121212);
+            background-size: 300% 300%;
+            animation: festival-bg 4s ease infinite;
+        }
+
+        .app-container {
+            background-color: var(--card-bg);
+            border-radius: 24px;
+            padding: 40px 25px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        #info {
+            color: var(--text-muted);
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .equalizer-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        .equalizer {
+            display: inline-flex;
+            align-items: flex-end;
+            height: 16px;
+            gap: 4px;
+            margin-right: 10px;
+        }
+        .bar {
+            width: 5px;
+            background-color: var(--spotify-green);
+            border-radius: 2px;
+            animation: bounce 0.4s infinite alternate;
+        }
+        .bar:nth-child(1) { animation-delay: 0.1s; height: 10px; }
+        .bar:nth-child(2) { animation-delay: 0.3s; height: 16px; }
+        .bar:nth-child(3) { animation-delay: 0.0s; height: 8px; }
+        .bar:nth-child(4) { animation-delay: 0.2s; height: 14px; }
+
+        @keyframes bounce {
+            0% { height: 4px; }
+            100% { height: 16px; }
+        }
+
+        button {
+            width: 100%;
+            padding: 18px 20px;
+            font-size: 16px;
+            border-radius: 50px;
+            border: none;
+            color: white;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 15px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            text-transform: uppercase;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        button:active { transform: scale(0.96); }
+
+        #loginBtn, #playBtn, #retryBtn, #scanBtn { background-color: var(--spotify-green); }
+        #loginBtn:hover, #playBtn:hover, #retryBtn:hover, #scanBtn:hover {
+            background-color: var(--spotify-green-hover);
+            box-shadow: 0 8px 25px rgba(29, 185, 84, 0.4);
+        }
+
+        #pauseBtn { background-color: var(--danger-red); }
+        #pauseBtn:hover {
+            background-color: var(--danger-red-hover);
+            box-shadow: 0 8px 25px rgba(229, 9, 20, 0.4);
+        }
+
+        #revealBtn {
+            background-color: var(--purple);
+            font-size: 14px;
+            padding: 15px 20px;
+            margin-top: 10px;
+        }
+        #revealBtn:hover {
+            background-color: var(--purple-hover);
+            box-shadow: 0 8px 25px rgba(124, 77, 255, 0.4);
+        }
+
+        #openBtn, #nextBtn {
+            background-color: #2a2a2a;
+            color: #d1d1d1;
+        }
+        #openBtn:hover, #nextBtn:hover {
+            background-color: #3e3e3e;
+            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+        #nextBtn {
+            margin-top: 5px;
+            font-size: 14px;
+            padding: 15px 20px;
+        }
+
+        #timerDisplay {
+            font-family: 'Bebas Neue', cursive, sans-serif;
+            font-size: 65px;
+            margin-top: 10px;
+            display: none;
+            color: var(--spotify-green);
+            text-shadow: 0 0 20px rgba(29, 185, 84, 0.6);
+            letter-spacing: 4px;
+        }
+
+        /* Tarjeta con los datos revelados */
+        #revealInfo {
+            display: none;
+            margin: 5px 0 20px;
+            padding: 18px 16px;
+            background: #222;
+            border-radius: 18px;
+            border: 1px solid #333;
+        }
+        .rv-title { font-size: 20px; font-weight: 700; color: white; line-height: 1.3; }
+        .rv-artist { font-size: 16px; color: var(--text-muted); margin-top: 4px; }
+        .rv-year {
+            font-family: 'Bebas Neue', cursive, sans-serif;
+            font-size: 56px;
+            color: var(--spotify-green);
+            letter-spacing: 3px;
+            line-height: 1.1;
+            margin-top: 6px;
+        }
+        .rv-loading { font-size: 15px; color: var(--text-muted); }
+
+        /* Escáner de QR a pantalla completa */
+        #scannerOverlay {
+            position: fixed;
+            top: 0; right: 0; bottom: 0; left: 0;
+            background: #000;
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+        }
+        #scanVideo {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #scanFrame {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            width: min(70vw, 320px);
+            aspect-ratio: 1 / 1;
+            transform: translate(-50%, -50%);
+            border: 4px solid var(--spotify-green);
+            border-radius: 24px;
+            box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.55);
+            pointer-events: none;
+        }
+        .scan-bottom {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            padding: 20px 25px calc(20px + env(safe-area-inset-bottom));
+            text-align: center;
+        }
+        #scanHint {
+            color: white;
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 18px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+        }
+        #scanCancel { background-color: #2a2a2a; margin-bottom: 0; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <h1>🎧 HITSTER FESTIVAL EDITION</h1>
+        <div id="info">Cargando...</div>
+
+        <button id="loginBtn" onclick="login()" style="display:none;">Conectar Spotify</button>
+        <button id="scanBtn" onclick="abrirEscaner()" style="display:none;">📷 Escanear carta</button>
+        <button id="playBtn" onclick="reproducir()" style="display:none;">▶️ Reproducir Pista</button>
+        <button id="pauseBtn" onclick="pausar()" style="display:none;">⏸ Pausar Pista</button>
+        <button id="openBtn" onclick="abrirSpotify()" style="display:none;">🎵 Abrir Spotify</button>
+        <button id="retryBtn" onclick="reproducir()" style="display:none;">🔄 Reintentar</button>
+
+        <div id="timerDisplay">00:00</div>
+
+        <button id="revealBtn" onclick="revelar()" style="display:none;">👀 Revelar canción</button>
+        <div id="revealInfo"></div>
+
+        <button id="nextBtn" onclick="siguienteCarta()" style="display:none;">📷 SIGUIENTE CANCIÓN</button>
+    </div>
+
+    <!-- Escáner de QR -->
+    <div id="scannerOverlay">
+        <video id="scanVideo" playsinline muted></video>
+        <div id="scanFrame"></div>
+        <div class="scan-bottom">
+            <div id="scanHint">Apunta al QR de la carta</div>
+            <button id="scanCancel" onclick="cerrarEscaner()">Cancelar</button>
+        </div>
+    </div>
+
+    <script>
+        // ================= CONFIGURACIÓN =================
+        const clientId = 'df32a706b07c4806b0268f1c18c90503';
+        // Debe coincidir EXACTAMENTE con la Redirect URI registrada en el dashboard de Spotify
+        const redirectUri = window.location.origin + window.location.pathname;
+        const SCOPES = 'user-modify-playback-state user-read-playback-state';
+        const AUTOPLAY = true;  // true = la canción empieza sola al escanear. false = hay que pulsar "Reproducir"
+        const VIBRAR = true;    // vibración corta al leer un QR (solo Android)
+        const TOKEN_URL = 'https://accounts.spotify.com/api/token';
+        const API_URL = 'https://api.spotify.com/v1';
+
+        // Spotify devuelve la fecha del ÁLBUM, que en recopilatorios o remasterizaciones
+        // puede no ser el año original. Si alguna carta sale con el año mal, corrígelo aquí:
+        // const anioReal = { "carta5": 1985, "carta12": 1999 };
+        const anioReal = {};
+
+        const canciones = {
+            "carta1": "spotify:track:5dAtKXyrQoQW054LZqJ5dP",
+            "carta2": "spotify:track:4biWmzhZc3fDRTXRi0wnRg",
+            "carta3": "spotify:track:0FaG2Hc9LSFsuChAC0ZZcM",
+            "carta4": "spotify:track:5AMTt4QNINkJs1Hq48xD3m",
+            "carta5": "spotify:track:2dYDrD4YRHrleaKH3MN7hl",
+            "carta6": "spotify:track:4NGikVnR4wpcB79gZE7tgg",
+            "carta7": "spotify:track:01XFgRZfZI7oBagNf1Loml",
+            "carta8": "spotify:track:1UPyhGntpIx9jGJ5UVtKVS",
+            "carta9": "spotify:track:2dgjMHEX69zYh9Doxf2BDm",
+            "carta10": "spotify:track:31ZO9XuKt48Qb2eUTBynd2",
+            "carta11": "spotify:track:019j8UOaqlO7DAIGwG8QnH",
+            "carta12": "spotify:track:4RexgxVL3yC2Ohx8vdEPqJ",
+            "carta13": "spotify:track:2OSsMwCiZPC44tJ4OPVSZF",
+            "carta14": "spotify:track:2M1mqcNUBIAfRoD2Puhejf",
+            "carta15": "spotify:track:3rgc96C9Ou7qA32hS2FZ6x",
+            "carta16": "spotify:track:52C8aF588mf11VBsSnCdsy",
+            "carta17": "spotify:track:2MxMwKtn5vK7urJf4pb4KR",
+            "carta18": "spotify:track:1FlIzyCvRFQUE4pc7PiaIo",
+            "carta19": "spotify:track:7BqHUALzNBTanL6OvsqmC1",
+            "carta20": "spotify:track:3UidkynpEshXFzYKo5ahAd",
+            "carta21": "spotify:track:7uKjjI2a4Ia8nHKzgdya1y",
+            "carta22": "spotify:track:6D3TI6EZuPtdJZyejGuesp",
+            "carta23": "spotify:track:2IydAl7NltyqyLPOCGtWV3",
+            "carta24": "spotify:track:61Cx5cbYUgDTA2m4SuKJ37",
+            "carta25": "spotify:track:5TPbaf41x9xia1Zf8Zr4Ax",
+            "carta26": "spotify:track:6s7xPlMLMo6FiMli1cMzlZ",
+            "carta27": "spotify:track:6vPJvkEuWZPcv58NnQ3dBR",
+            "carta28": "spotify:track:0vcn58nh8jUjgxy6uIX4GD",
+            "carta29": "spotify:track:7HnJ9niokcVbqLi8FlmcyJ",
+            "carta30": "spotify:track:1tndktY8ZFXapGYIeHUGR2",
+            "carta31": "spotify:track:4FYbo4yQzu3hGkj2Ix4ucW",
+            "carta32": "spotify:track:3aIhJDHxr1kgTSnutJxPTH",
+            "carta33": "spotify:track:1I8tHoNBFTuoJAlh4hfVVE",
+            "carta34": "spotify:track:14QW1Y8ZEJbWkkNAQkPn9M",
+            "carta35": "spotify:track:1y4PL9U8PGfCkwX1wwWYII",
+            "carta36": "spotify:track:4xx4xYffuHfFKsCW6s2KnH",
+            "carta37": "spotify:track:4Jp79uh7FDCzkSEr88zdjm",
+            "carta38": "spotify:track:5VgZzkaaQeW3Kk3hH9k4MT",
+            "carta39": "spotify:track:7yYLIIScUpH76gDKUyFahn",
+            "carta40": "spotify:track:0759rRUMEym1gA2IwslpQd",
+            "carta41": "spotify:track:4pBykn8eWxl3O9JvIHZXj4",
+            "carta42": "spotify:track:39cmB3ZoTOLwOTq7tMNqKa",
+            "carta43": "spotify:track:1s2B5cndbqK8rPJEIcKJRQ",
+            "carta44": "spotify:track:4hZpTCrAVGU04WchCdBuKO",
+            "carta45": "spotify:track:7xHfguzndSR2jOpMxzqh3r",
+            "carta46": "spotify:track:2ewEh7LuvToYyGHq7yT8N1",
+            "carta47": "spotify:track:0tgbSxoFjZ20MjfoKwWevV",
+            "carta48": "spotify:track:1HezRYlgnmN4umk4l9HIPv",
+            "carta49": "spotify:track:6pooRNiLyYpxZeIA5kJ5EX",
+            "carta50": "spotify:track:4BxzNZpcm1j3JczZzGNe2k",
+            "carta51": "spotify:track:0OyHCmkCp2qZJ44ZKB26fX",
+            "carta52": "spotify:track:3EpRJN0najsfQrBCsTtVWI",
+            "carta53": "spotify:track:1q8NdCAQ9QUjpYiqzdd3mv",
+            "carta54": "spotify:track:419w8oZaqevgyZfdvFZEHa",
+            "carta55": "spotify:track:2U4kPiipwfc2oHmd0nGoj5",
+            "carta56": "spotify:track:6Gqr73FGnlhtdBNluxJVJI",
+            "carta57": "spotify:track:6d63QA85w4FXhlXYtz7nco",
+            "carta58": "spotify:track:5YJ4BVvTFmVCxUyhKejHfR",
+            "carta59": "spotify:track:4cyYC67XY3weSVmSLdKLP8",
+            "carta60": "spotify:track:4cdvEShhfVE4UIHcjoK7NA",
+            "carta61": "spotify:track:614NVFo5csQqRnryl4jXs2",
+            "carta62": "spotify:track:1tvdNGCcgAhYaYq7ouIYGJ",
+            "carta63": "spotify:track:17jhIwr7mApkaht65aGH5K",
+            "carta64": "spotify:track:6hpuesKPNa3WhV48O7Fa47",
+            "carta65": "spotify:track:5MRsxkPZyRs1VfnXFdgSHm",
+            "carta66": "spotify:track:2ud5ukcAgwOki5PyE53mPl",
+            "carta67": "spotify:track:2fR4NdUZJditzpS2iBWxiY",
+            "carta68": "spotify:track:17tBEKEKJXnHgJjGrH5rB9",
+            "carta69": "spotify:track:5tMFR1V777V8IdkVVuiV7d",
+            "carta70": "spotify:track:5OcUNWgmDCr6ID4LnYYlup",
+            "carta71": "spotify:track:3oNDynp3Y6F9NvCMqvoxYI",
+            "carta72": "spotify:track:1vVUsYlYEkrZVJWYUvBKUu",
+            "carta73": "spotify:track:5L5kU9WFu7IPZQXzzxaRQV",
+            "carta74": "spotify:track:3ysxSFBKeLfncpMk6yKKYf",
+            "carta75": "spotify:track:5X2QG4l6skcB7BmMeiOh7d",
+            "carta76": "spotify:track:6c0vdY5EZOx8g95uWcp3uI",
+            "carta77": "spotify:track:3jweNemSOUhPyr1330ZXRM",
+            "carta78": "spotify:track:3deLO11zxiXYWpdHlUxNER",
+            "carta79": "spotify:track:5QK32vB1hmlEe1ruP1usFk",
+            "carta80": "spotify:track:4azCAIDvF17pohUA2Jfump",
+            "carta81": "spotify:track:7mc5jjo6PkhbMF9vQzUK3Q",
+            "carta82": "spotify:track:0ZPfoFzZ4qmdyzYmG8whmn",
+            "carta83": "spotify:track:39glqzRVRAy4vq3PqeTGb8",
+            "carta84": "spotify:track:58hjBuGWj43LQ6WjN3ZQAK",
+            "carta85": "spotify:track:4n7jnSxVLd8QioibtTDBDq",
+            "carta86": "spotify:track:6wefD5q8rXOg3xHTUZjyio",
+            "carta87": "spotify:track:3E8WZzcp6nscGt9YvBX9MW",
+            "carta88": "spotify:track:3tFq8IZqLaqnZO0rxbcanH",
+            "carta89": "spotify:track:3tiC6D3N07kUIJXKNDRHjy",
+            "carta90": "spotify:track:4fb0iBhHbQeiJHOfLr6R75",
+            "carta91": "spotify:track:1VB4sadHjFcFklHcZuoROi",
+            "carta92": "spotify:track:42VgiRyg0YjtRVLiPFNxPJ",
+            "carta93": "spotify:track:24UStI5AYA7g5ufFDh3LH0",
+            "carta94": "spotify:track:3hlWUNjAlbZ6nOjAbrivBv",
+            "carta95": "spotify:track:30MdAjBfVTvBCS3vID38At",
+            "carta96": "spotify:track:24UjTh2wPv6g78XeRNbyCQ",
+            "carta97": "spotify:track:73SGUxXPloaU5CfeKkJf5D",
+            "carta98": "spotify:track:6oGFDrlsSXovBIAY7gNYIq",
+            "carta99": "spotify:track:24URRMO355FFEoBfTYxb4p",
+            "carta100": "spotify:track:0VffaI2jwQknRrxpECYHsF",
+            "carta101": "spotify:track:2hZfSXDhitRcQcFtfRDF8g",
+            "carta102": "spotify:track:3UyZtf5BzjEYFJkIiIipoH",
+            "carta103": "spotify:track:1dFkD1JfRMzwO6hwUsE8aS",
+            "carta104": "spotify:track:4qPnE8jBZN3wmgGxspsOcP",
+            "carta105": "spotify:track:6VRhkROS2SZHGlp0pxndbJ",
+            "carta106": "spotify:track:52zeJeJrFqKmJBc4FK6767",
+            "carta107": "spotify:track:55SPQmrp0XawJSbBtPelaA",
+            "carta108": "spotify:track:652jfnOkcgGuELRmIulecC",
+            "carta109": "spotify:track:5j0mpQhOd17txGdJKRf2ne",
+            "carta110": "spotify:track:2aWPbnoArRZQwxsgceodTB",
+            "carta111": "spotify:track:5qQhUb1MOFSD3pHVZFgkRm",
+            "carta112": "spotify:track:0g5EKLgdKvNlln7TNqBByK",
+            "carta113": "spotify:track:3N9huFk2IceMSlKoZLaUsv",
+            "carta114": "spotify:track:7BKLCZ1jbUBVqRi2FVlTVw",
+            "carta115": "spotify:track:53N4dEwHT1D6xwebFQ8OtQ",
+            "carta116": "spotify:track:3aQz0z86zrKjd1mcZlonxE",
+            "carta117": "spotify:track:5ASXF1le2xjqkv4MxIOhtd"
+        };
+
+        // ================= UTILIDADES UI =================
+        const $ = id => document.getElementById(id);
+        const BOTONES = ['loginBtn', 'scanBtn', 'playBtn', 'pauseBtn', 'openBtn', 'retryBtn', 'revealBtn', 'nextBtn'];
+
+        function mostrarBotones(...ids) {
+            BOTONES.forEach(b => { $(b).style.display = ids.includes(b) ? 'block' : 'none'; });
+        }
+        function setInfo(html) { $('info').innerHTML = html; }
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        function vibrar(ms) {
+            if (VIBRAR && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) { } }
+        }
+
+        // ================= ESTADO =================
+        let cartaId = null;
+        let isPaused = false;
+        let busy = false;               // evita dobles pulsaciones / dobles peticiones
+        let waitingForDevice = false;   // true cuando esperamos a que el usuario abra Spotify
+        const datosCache = {};          // datos de las canciones ya reveladas
+
+        // ================= TEMPORIZADOR (basado en reloj, no se atrasa en segundo plano) =================
+        let timerInterval = null;
+        let elapsedMs = 0;
+        let startedAt = null;
+
+        function updateTimerDisplay() {
+            const total = Math.floor((elapsedMs + (startedAt ? Date.now() - startedAt : 0)) / 1000);
+            const m = Math.floor(total / 60);
+            const s = total % 60;
+            $('timerDisplay').innerText = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        }
+        function startTimer() {
+            $('timerDisplay').style.display = 'block';
+            if (startedAt === null) startedAt = Date.now();
+            if (!timerInterval) timerInterval = setInterval(updateTimerDisplay, 250);
+            updateTimerDisplay();
+        }
+        function stopTimer() {
+            if (startedAt !== null) {
+                elapsedMs += Date.now() - startedAt;
+                startedAt = null;
+            }
+            if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+            updateTimerDisplay();
+        }
+        function resetTimer() {
+            stopTimer();
+            elapsedMs = 0;
+            updateTimerDisplay();
+        }
+
+        // ================= PANTALLA SIEMPRE ENCENDIDA =================
+        let wakeLock = null;
+        async function mantenerPantalla() {
+            try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { }
+        }
+        function soltarPantalla() {
+            try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch (e) { }
+        }
+
+        // ================= AUTENTICACIÓN (PKCE + refresh token) =================
+        async function generateCodeChallenge(codeVerifier) {
+            const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(codeVerifier));
+            return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        function generateRandomString(length) {
+            const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            const values = crypto.getRandomValues(new Uint8Array(length));
+            let text = '';
+            for (let i = 0; i < length; i++) text += possible.charAt(values[i] % possible.length);
+            return text;
+        }
+
+        async function login() {
+            const verifier = generateRandomString(128);
+            localStorage.setItem('code_verifier', verifier);
+            const challenge = await generateCodeChallenge(verifier);
+            const params = new URLSearchParams({
+                client_id: clientId,
+                response_type: 'code',
+                redirect_uri: redirectUri,
+                scope: SCOPES,
+                code_challenge_method: 'S256',
+                code_challenge: challenge
+            });
+            // Guardamos la carta escaneada en "state" para volver a ella tras el login
+            if (cartaId) params.set('state', cartaId);
+            window.location.href = 'https://accounts.spotify.com/authorize?' + params.toString();
+        }
+
+        function saveTokens(data) {
+            localStorage.setItem('spotify_token', data.access_token);
+            if (data.refresh_token) localStorage.setItem('spotify_refresh', data.refresh_token);
+            // Margen de 60 s para no usar un token a punto de caducar
+            localStorage.setItem('spotify_expires_at', String(Date.now() + (data.expires_in - 60) * 1000));
+        }
+
+        function clearTokens() {
+            localStorage.removeItem('spotify_token');
+            localStorage.removeItem('spotify_refresh');
+            localStorage.removeItem('spotify_expires_at');
+        }
+
+        async function intercambiarCodigo(code) {
+            const verifier = localStorage.getItem('code_verifier');
+            if (!verifier) return false;
+            try {
+                const r = await fetch(TOKEN_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        client_id: clientId,
+                        grant_type: 'authorization_code',
+                        code: code,
+                        redirect_uri: redirectUri,
+                        code_verifier: verifier
+                    })
+                });
+                const data = await r.json();
+                if (!data.access_token) return false;
+                saveTokens(data);
+                localStorage.removeItem('code_verifier');
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function refrescarToken() {
+            const refresh = localStorage.getItem('spotify_refresh');
+            if (!refresh) return false;
+            try {
+                const r = await fetch(TOKEN_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        client_id: clientId,
+                        grant_type: 'refresh_token',
+                        refresh_token: refresh
+                    })
+                });
+                const data = await r.json();
+                if (!data.access_token) return false;
+                saveTokens(data);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function getToken() {
+            const token = localStorage.getItem('spotify_token');
+            const exp = Number(localStorage.getItem('spotify_expires_at') || 0);
+            if (token && Date.now() < exp) return token;
+            if (await refrescarToken()) return localStorage.getItem('spotify_token');
+            return null;
+        }
+
+        // Llamada a la API con renovación automática del token si da 401
+        async function api(path, opts = {}) {
+            const token = await getToken();
+            if (!token) throw new Error('NO_TOKEN');
+            const hacer = t => fetch(API_URL + path, {
+                ...opts,
+                headers: { ...(opts.headers || {}), 'Authorization': 'Bearer ' + t }
+            });
+            let r = await hacer(token);
+            if (r.status === 401 && await refrescarToken()) {
+                r = await hacer(localStorage.getItem('spotify_token'));
+            }
+            return r;
+        }
+
+        // ================= ESCÁNER DE QR =================
+        let scanStream = null;
+        let scanTimer = null;
+        let scanning = false;
+        let hintTimer = null;
+        const scanCanvas = document.createElement('canvas');
+        const scanCtx = scanCanvas.getContext('2d', { willReadFrequently: true });
+        const HINT_BASE = 'Apunta al QR de la carta';
+
+        // Acepta la URL completa del QR (…?id=carta5), "carta5" o solo "5"
+        function extraerId(texto) {
+            let id = null;
+            try { id = new URL(texto).searchParams.get('id'); } catch (e) { }
+            if (!id) id = texto;
+            id = normalizarId(id);
+            return canciones[id] ? id : null;
+        }
+
+        function pistaTemporal(texto) {
+            $('scanHint').textContent = texto;
+            clearTimeout(hintTimer);
+            hintTimer = setTimeout(() => { $('scanHint').textContent = HINT_BASE; }, 1800);
+        }
+
+        async function abrirEscaner() {
+            if (scanning) return;
+            if (typeof jsQR === 'undefined') {
+                setInfo("No se ha podido cargar el lector de QR.<br>Comprueba tu conexión y recarga la página.");
+                return;
+            }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                setInfo("Este navegador no permite usar la cámara desde la web.<br>Usa la cámara normal del móvil para escanear.");
+                return;
+            }
+            try {
+                scanStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: false
+                });
+            } catch (e) {
+                setInfo("<b>⚠️ No tengo permiso para usar la cámara.</b><br><br>Actívalo en los ajustes del navegador o usa la cámara normal del móvil para escanear.");
+                mostrarBotones('scanBtn');
+                return;
+            }
+
+            const video = $('scanVideo');
+            video.srcObject = scanStream;
+            video.setAttribute('playsinline', 'true');
+            try { await video.play(); } catch (e) { }
+
+            $('scanHint').textContent = HINT_BASE;
+            $('scannerOverlay').style.display = 'flex';
+            scanning = true;
+            leerFrame();
+        }
+
+        function leerFrame() {
+            if (!scanning) return;
+            const video = $('scanVideo');
+            if (video.readyState >= 2 && video.videoWidth) {
+                const escala = Math.min(1, 640 / video.videoWidth);
+                const w = Math.round(video.videoWidth * escala);
+                const h = Math.round(video.videoHeight * escala);
+                if (scanCanvas.width !== w || scanCanvas.height !== h) {
+                    scanCanvas.width = w;
+                    scanCanvas.height = h;
+                }
+                scanCtx.drawImage(video, 0, 0, w, h);
+                const img = scanCtx.getImageData(0, 0, w, h);
+                const res = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+                if (res && res.data) {
+                    const id = extraerId(res.data);
+                    if (id) { alEscanear(id); return; }
+                    pistaTemporal('Ese QR no es de una carta');
+                }
+            }
+            scanTimer = setTimeout(leerFrame, 120);
+        }
+
+        function cerrarEscaner() {
+            scanning = false;
+            clearTimeout(scanTimer);
+            clearTimeout(hintTimer);
+            if (scanStream) { scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+            const video = $('scanVideo');
+            video.pause();
+            video.srcObject = null;
+            $('scannerOverlay').style.display = 'none';
+            // Si se cancela sin carta cargada, volvemos a la pantalla de inicio
+            if (!document.body.classList.contains('playing-bg') && !busy && !isPaused && !waitingForDevice) {
+                if (!cartaId) {
+                    setInfo("Conectado y listo. Pulsa para escanear una carta.");
+                    mostrarBotones('scanBtn');
+                }
+            }
+        }
+
+        function alEscanear(id) {
+            cerrarEscaner();
+            vibrar(60);
+            cartaId = id;
+            limpiarUrl();
+            nuevaCarta();
+            reproducir();
+        }
+
+        // Reinicia la interfaz para una carta nueva
+        function nuevaCarta() {
+            isPaused = false;
+            waitingForDevice = false;
+            resetTimer();
+            $('timerDisplay').style.display = 'none';
+            $('revealInfo').style.display = 'none';
+            $('revealInfo').innerHTML = '';
+            $('playBtn').textContent = '▶️ Reproducir Pista';
+        }
+
+        // ================= REVELAR CANCIÓN =================
+        async function obtenerDatosPista(id) {
+            const trackId = canciones[id].split(':')[2];
+            let t = null;
+
+            const r = await api('/tracks/' + trackId);
+            if (r.ok) {
+                t = await r.json();
+            } else {
+                // Plan B: leer la pista que está sonando ahora mismo
+                const r2 = await api('/me/player');
+                if (r2.status === 200) {
+                    const p = await r2.json();
+                    if (p && p.item && p.item.id === trackId) t = p.item;
+                }
+            }
+            if (!t) throw new Error('NO_DATA');
+
+            return {
+                titulo: t.name,
+                artista: (t.artists || []).map(a => a.name).join(', '),
+                anio: ((t.album && t.album.release_date) || '').slice(0, 4)
+            };
+        }
+
+        async function revelar() {
+            if (!cartaId) return;
+            const box = $('revealInfo');
+            box.style.display = 'block';
+            box.innerHTML = "<div class='rv-loading'>Buscando datos...</div>";
+            try {
+                let d = datosCache[cartaId];
+                if (!d) {
+                    d = await obtenerDatosPista(cartaId);
+                    datosCache[cartaId] = d;
+                }
+                const anio = anioReal[cartaId] || d.anio || '?';
+                box.innerHTML =
+                    "<div class='rv-title'>" + escapeHtml(d.titulo) + "</div>" +
+                    "<div class='rv-artist'>" + escapeHtml(d.artista) + "</div>" +
+                    "<div class='rv-year'>" + escapeHtml(anio) + "</div>";
+            } catch (e) {
+                box.innerHTML = "<div class='rv-loading'>No se pudieron cargar los datos de la canción.</div>";
+            }
+        }
+
+        // ================= DISPOSITIVOS =================
+        function elegirDispositivo(devices) {
+            const usables = devices.filter(d => d.id && !d.is_restricted);
+            const ultimo = localStorage.getItem('last_device_id');
+            return usables.find(d => d.is_active)
+                || usables.find(d => d.id === ultimo)
+                || usables.find(d => d.type === 'Smartphone')
+                || usables[0]
+                || null;
+        }
+
+        function abrirSpotify() {
+            // Abre la app de Spotify; al volver a esta pestaña se reintenta solo
+            window.location.href = 'spotify:';
+        }
+
+        function mostrarSinDispositivo() {
+            waitingForDevice = true;
+            isPaused = false;
+            setInfo("<b>⚠️ No encuentro tu Spotify.</b><br><br>Pulsa <b>Abrir Spotify</b>, espera un par de segundos y vuelve aquí: se reintentará solo. Si no, pulsa Reintentar.");
+            mostrarBotones('openBtn', 'retryBtn', 'scanBtn');
+        }
+
+        async function manejarError(r) {
+            let reason = '';
+            try { const j = await r.json(); reason = (j.error && j.error.reason) || ''; } catch (e) { }
+
+            if (r.status === 401) {
+                clearTokens();
+                setInfo("La sesión de Spotify ha caducado.<br>Pulsa conectar de nuevo.");
+                mostrarBotones('loginBtn');
+            } else if (r.status === 403) {
+                if (reason === 'PREMIUM_REQUIRED') {
+                    setInfo("<b>⚠️ Hace falta Spotify Premium</b> para controlar la reproducción desde la web.");
+                } else {
+                    setInfo("<b>⚠️ Spotify ha rechazado la petición (403).</b><br><br>Comprueba que tu cuenta está añadida en <i>User Management</i> del dashboard de Spotify y que es Premium.");
+                }
+                mostrarBotones('retryBtn');
+            } else if (r.status === 404) {
+                mostrarSinDispositivo();
+            } else if (r.status === 429) {
+                setInfo("Spotify va saturado. Espera unos segundos y reintenta.");
+                mostrarBotones('retryBtn');
+            } else {
+                setInfo("Error de Spotify (" + r.status + ").<br>Pulsa reintentar.");
+                mostrarBotones('retryBtn');
+            }
+        }
+
+        // ================= REPRODUCCIÓN =================
+        function alEmpezar(reanudando) {
+            setInfo("<div class='equalizer-container'><div class='equalizer'><div class='bar'></div><div class='bar'></div><div class='bar'></div><div class='bar'></div></div> <span style='font-weight:bold; color:white;'>¡REPRODUCIENDO!</span></div>");
+            $('playBtn').textContent = '▶️ Reproducir Pista';
+            mostrarBotones('pauseBtn', 'revealBtn', 'nextBtn');
+            document.body.classList.add('playing-bg');
+            if (!reanudando) resetTimer();
+            isPaused = false;
+            startTimer();
+            mantenerPantalla();
+        }
+
+        async function reproducir() {
+            if (busy) return;
+            busy = true;
+            waitingForDevice = false;
+            const reanudando = isPaused;
+            setInfo("Conectando con Spotify...");
+            mostrarBotones();
+
+            try {
+                // 1) Buscamos un dispositivo (así no depende de que Spotify esté "activo")
+                const dr = await api('/me/player/devices');
+                if (!dr.ok) { await manejarError(dr); return; }
+                const devices = (await dr.json()).devices || [];
+                const device = elegirDispositivo(devices);
+                if (!device) { mostrarSinDispositivo(); return; }
+
+                // 2) Reproducimos (o reanudamos) indicando el dispositivo
+                const opts = { method: 'PUT' };
+                if (!reanudando) {
+                    opts.headers = { 'Content-Type': 'application/json' };
+                    opts.body = JSON.stringify({ uris: [canciones[cartaId]] });
+                }
+                const r = await api('/me/player/play?device_id=' + encodeURIComponent(device.id), opts);
+
+                if (r.ok || r.status === 204) {
+                    localStorage.setItem('last_device_id', device.id);
+                    alEmpezar(reanudando);
+                } else {
+                    isPaused = false; // si falla una reanudación, el siguiente intento reinicia la pista
+                    await manejarError(r);
+                }
+            } catch (e) {
+                if (e.message === 'NO_TOKEN') {
+                    setInfo("Hay que conectar con Spotify.");
+                    mostrarBotones('loginBtn');
+                } else {
+                    isPaused = false;
+                    setInfo("Error de red.<br>Comprueba tu conexión y pulsa reintentar.");
+                    mostrarBotones('retryBtn');
+                }
+            } finally {
+                busy = false;
+            }
+        }
+
+        async function pausar() {
+            try {
+                const r = await api('/me/player/pause', { method: 'PUT' });
+                if (r.ok || r.status === 204) {
+                    setInfo("⏸ Pista en pausa.");
+                    $('playBtn').textContent = '▶️ Reanudar Pista';
+                    mostrarBotones('playBtn', 'revealBtn', 'nextBtn');
+                    document.body.classList.remove('playing-bg');
+                    isPaused = true;
+                    stopTimer();
+                    soltarPantalla();
+                } else {
+                    await manejarError(r);
+                }
+            } catch (e) {
+                setInfo("No se pudo pausar. Inténtalo de nuevo.");
+            }
+        }
+
+        // Para la canción y abre directamente el escáner para la siguiente carta
+        function siguienteCarta() {
+            if (!isPaused) api('/me/player/pause', { method: 'PUT' }).catch(() => { });
+            stopTimer();
+            soltarPantalla();
+            document.body.classList.remove('playing-bg');
+            cartaId = null;
+            history.replaceState({}, '', redirectUri);
+            nuevaCarta();
+            setInfo("✅ Pista terminada<br>Escanea la siguiente carta.");
+            mostrarBotones('scanBtn');
+            abrirEscaner();
+        }
+
+        // Al volver desde la app de Spotify, reintentamos automáticamente.
+        // Si la pestaña se oculta con el escáner abierto, apagamos la cámara.
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                if (scanning) cerrarEscaner();
+            } else if (waitingForDevice && !busy) {
+                setTimeout(reproducir, 1500);
+            }
+        });
+
+        // ================= ARRANQUE =================
+        function normalizarId(id) {
+            if (!id) return null;
+            id = String(id).trim();
+            return /^\d+$/.test(id) ? 'carta' + id : id; // permite ?id=5 además de ?id=carta5
+        }
+
+        function limpiarUrl() {
+            const nueva = redirectUri + (cartaId ? '?id=' + encodeURIComponent(cartaId) : '');
+            history.replaceState({}, '', nueva);
+        }
+
+        async function iniciarApp() {
+            const token = await getToken();
+            if (!token) {
+                setInfo("Conecta la web con Spotify para que la música suene de forma invisible.");
+                mostrarBotones('loginBtn');
+                return;
+            }
+            if (!cartaId) {
+                setInfo("Conectado y listo.<br>Pulsa para escanear una carta.");
+                mostrarBotones('scanBtn');
+                return;
+            }
+            if (!canciones[cartaId]) {
+                setInfo("Error: la carta «" + escapeHtml(cartaId) + "» no está guardada en el código.");
+                mostrarBotones('scanBtn');
+                return;
+            }
+            if (AUTOPLAY) {
+                reproducir();
+            } else {
+                setInfo("¡Lista!<br><br>Asegúrate de tener Spotify abierto de fondo y pulsa reproducir.");
+                mostrarBotones('playBtn', 'scanBtn');
+            }
+        }
+
+        (async function main() {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            const authError = params.get('error');
+            cartaId = normalizarId(params.get('id') || params.get('state'));
+
+            if (authError) {
+                limpiarUrl();
+                setInfo("Spotify no ha dado permiso.<br>Pulsa conectar para intentarlo de nuevo.");
+                mostrarBotones('loginBtn');
+                return;
+            }
+
+            if (code) {
+                setInfo("Validando conexión...");
+                const ok = await intercambiarCodigo(code);
+                limpiarUrl(); // quita ?code=... para que un refresco no reutilice un código ya gastado
+                if (!ok) {
+                    setInfo("Error en la conexión.<br>Pulsa conectar para reintentarlo.");
+                    mostrarBotones('loginBtn');
+                    return;
+                }
+            }
+
+            iniciarApp();
+        })();
+
+        // ================= PWA: service worker =================
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(() => { });
+            });
+        }
+    </script>
+</body>
+</html>
