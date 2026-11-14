@@ -292,7 +292,7 @@
         <div id="scanFrame"></div>
         <div class="scan-bottom">
             <div id="scanHint">Apunta al QR de la carta</div>
-            <button id="scanCancel" onclick="cerrarEscaner()">Cancelar</button>
+            <button id="scanCancel" onclick="ultimaCarta = null; cerrarEscaner()">Cancelar</button>
         </div>
     </div>
 
@@ -680,8 +680,11 @@
                 const res = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
                 if (res && res.data) {
                     const id = extraerId(res.data);
-                    if (id) { alEscanear(id); return; }
-                    pistaTemporal('Ese QR no es de una carta');
+                    if (id && id === ultimaCarta) {
+                        // La cámara sigue viendo la carta anterior: la ignoramos
+                        pistaTemporal('Esa es la carta anterior. Enseña otra.');
+                    } else if (id) { alEscanear(id); return; }
+                    else pistaTemporal('Ese QR no es de una carta');
                 }
             }
             scanTimer = setTimeout(leerFrame, 120);
@@ -705,9 +708,12 @@
             }
         }
 
+        let ultimaCarta = null;   // carta que acaba de sonar (el escáner no la vuelve a aceptar seguida)
+
         function alEscanear(id) {
             cerrarEscaner();
             vibrar(60);
+            ultimaCarta = null;
             cartaId = id;
             limpiarUrl();
             nuevaCarta();
@@ -888,6 +894,7 @@
                 if (r.ok || r.status === 204) {
                     dispositivoActual = device;
                     alEmpezar(reanudando);
+                    if (!reanudando) verificarPista(cartaId, device);
                 } else {
                     isPaused = false; // si falla una reanudación, el siguiente intento reinicia la pista
                     await manejarError(r);
@@ -904,6 +911,28 @@
             } finally {
                 busy = false;
             }
+        }
+
+        // Comprueba que de verdad suena la carta pedida; si Spotify siguió con la anterior, reenvía la orden
+        async function verificarPista(id, device, intento = 1) {
+            await new Promise(res => setTimeout(res, 1500));
+            if (id !== cartaId) return; // ya se ha pasado a otra carta
+            try {
+                const r = await api('/me/player');
+                if (r.status !== 200) return;
+                const p = await r.json();
+                const esperado = canciones[id].split(':')[2];
+                if (p && p.item && p.item.id !== esperado && intento <= 2) {
+                    await api('/me/player/play?device_id=' + encodeURIComponent(device.id), {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ uris: [canciones[id]] })
+                    });
+                    resetTimer();
+                    startTimer();
+                    verificarPista(id, device, intento + 1);
+                }
+            } catch (e) { }
         }
 
         async function pausar() {
@@ -927,10 +956,11 @@
 
         // Para la canción y abre directamente el escáner para la siguiente carta
         function siguienteCarta() {
-            if (!isPaused) api('/me/player/pause', { method: 'PUT' }).catch(() => { });
+            if (!isPaused) api('/me/player/pause' + (dispositivoActual ? '?device_id=' + encodeURIComponent(dispositivoActual.id) : ''), { method: 'PUT' }).catch(() => { });
             stopTimer();
             soltarPantalla();
             document.body.classList.remove('playing-bg');
+            ultimaCarta = cartaId;
             cartaId = null;
             history.replaceState({}, '', redirectUri);
             nuevaCarta();
