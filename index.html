@@ -815,8 +815,15 @@
         }
 
         function abrirSpotify() {
-            // Abre la app de Spotify; al volver a esta pestaña se reintenta solo
-            window.location.href = 'spotify:';
+            // Abre la app de Spotify con la canción de la carta (más fiable que 'spotify:' a secas).
+            // Al volver a esta pestaña se reintenta solo. Si la app no se abre, usa el enlace web.
+            const uri = cartaId && canciones[cartaId] ? canciones[cartaId] : null;
+            const tid = uri ? uri.split(':')[2] : null;
+            const app = tid ? 'spotify:track:' + tid : 'spotify:';
+            const web = tid ? 'https://open.spotify.com/track/' + tid : 'https://open.spotify.com/';
+            const t = setTimeout(() => { if (!document.hidden) window.location.href = web; }, 1500);
+            document.addEventListener('visibilitychange', () => clearTimeout(t), { once: true });
+            window.location.href = app;
         }
 
         function mostrarSinDispositivo() {
