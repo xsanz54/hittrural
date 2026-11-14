@@ -170,11 +170,12 @@
             box-shadow: 0 8px 25px rgba(124, 77, 255, 0.4);
         }
 
-        #openBtn, #nextBtn {
+        #openBtn, #nextBtn, #deviceBtn {
             background-color: #2a2a2a;
             color: #d1d1d1;
         }
-        #openBtn:hover, #nextBtn:hover {
+        #deviceBtn { font-size: 13px; padding: 12px 20px; margin-bottom: 0; }
+        #openBtn:hover, #nextBtn:hover, #deviceBtn:hover {
             background-color: #3e3e3e;
             box-shadow: 0 8px 25px rgba(255, 255, 255, 0.05);
             color: white;
@@ -282,6 +283,7 @@
         <div id="revealInfo"></div>
 
         <button id="nextBtn" onclick="siguienteCarta()" style="display:none;">📷 SIGUIENTE CANCIÓN</button>
+        <button id="deviceBtn" onclick="cambiarDispositivo()" style="display:none;">🔀 Cambiar dispositivo</button>
     </div>
 
     <!-- Escáner de QR -->
@@ -432,7 +434,7 @@
 
         // ================= UTILIDADES UI =================
         const $ = id => document.getElementById(id);
-        const BOTONES = ['loginBtn', 'scanBtn', 'playBtn', 'pauseBtn', 'openBtn', 'retryBtn', 'revealBtn', 'nextBtn'];
+        const BOTONES = ['loginBtn', 'scanBtn', 'playBtn', 'pauseBtn', 'openBtn', 'retryBtn', 'revealBtn', 'nextBtn', 'deviceBtn'];
 
         function mostrarBotones(...ids) {
             BOTONES.forEach(b => { $(b).style.display = ids.includes(b) ? 'block' : 'none'; });
@@ -770,14 +772,40 @@
         }
 
         // ================= DISPOSITIVOS =================
+        let dispositivoActual = null;   // dispositivo en el que suena la carta
+        let dispositivosUsables = [];   // lista para el botón "Cambiar dispositivo"
+
+        const esMovil = d => d.type === 'Smartphone' || d.type === 'Tablet';
+
+        // Prioridad: 1) el que elegiste a mano, 2) tu móvil, 3) cualquier otro.
+        // Ya NO se prefiere el dispositivo "activo": si un Chromecast/altavoz se había
+        // quedado activo, las cartas nuevas se enviaban allí y no cambiaban de canción.
         function elegirDispositivo(devices) {
             const usables = devices.filter(d => d.id && !d.is_restricted);
-            const ultimo = localStorage.getItem('last_device_id');
-            return usables.find(d => d.is_active)
-                || usables.find(d => d.id === ultimo)
-                || usables.find(d => d.type === 'Smartphone')
+            dispositivosUsables = usables;
+            const elegido = localStorage.getItem('device_elegido');
+            return usables.find(d => d.id === elegido)
+                || usables.find(d => esMovil(d) && d.is_active)
+                || usables.find(esMovil)
+                || usables.find(d => d.is_active)
                 || usables[0]
                 || null;
+        }
+
+        // Pasa al siguiente dispositivo de la lista (móvil → Chromecast → …) y repite la carta
+        async function cambiarDispositivo() {
+            if (busy) return;
+            try {
+                const dr = await api('/me/player/devices');
+                if (!dr.ok) { await manejarError(dr); return; }
+                const usables = ((await dr.json()).devices || []).filter(d => d.id && !d.is_restricted);
+                if (usables.length < 2) { return; }
+                const i = usables.findIndex(d => dispositivoActual && d.id === dispositivoActual.id);
+                const siguiente = usables[(i + 1) % usables.length];
+                localStorage.setItem('device_elegido', siguiente.id);
+                isPaused = false;
+                reproducir();
+            } catch (e) { }
         }
 
         function abrirSpotify() {
@@ -820,9 +848,12 @@
 
         // ================= REPRODUCCIÓN =================
         function alEmpezar(reanudando) {
-            setInfo("<div class='equalizer-container'><div class='equalizer'><div class='bar'></div><div class='bar'></div><div class='bar'></div><div class='bar'></div></div> <span style='font-weight:bold; color:white;'>¡REPRODUCIENDO!</span></div>");
+            const nombre = dispositivoActual ? escapeHtml(dispositivoActual.name) : '';
+            setInfo("<div class='equalizer-container'><div class='equalizer'><div class='bar'></div><div class='bar'></div><div class='bar'></div><div class='bar'></div></div> <span style='font-weight:bold; color:white;'>¡REPRODUCIENDO!</span></div>" +
+                (nombre ? "<div style='font-size:13px;'>en " + nombre + "</div>" : ""));
             $('playBtn').textContent = '▶️ Reproducir Pista';
-            mostrarBotones('pauseBtn', 'revealBtn', 'nextBtn');
+            if (dispositivosUsables.length > 1) mostrarBotones('pauseBtn', 'revealBtn', 'nextBtn', 'deviceBtn');
+            else mostrarBotones('pauseBtn', 'revealBtn', 'nextBtn');
             document.body.classList.add('playing-bg');
             if (!reanudando) resetTimer();
             isPaused = false;
@@ -855,7 +886,7 @@
                 const r = await api('/me/player/play?device_id=' + encodeURIComponent(device.id), opts);
 
                 if (r.ok || r.status === 204) {
-                    localStorage.setItem('last_device_id', device.id);
+                    dispositivoActual = device;
                     alEmpezar(reanudando);
                 } else {
                     isPaused = false; // si falla una reanudación, el siguiente intento reinicia la pista
@@ -877,7 +908,7 @@
 
         async function pausar() {
             try {
-                const r = await api('/me/player/pause', { method: 'PUT' });
+                const r = await api('/me/player/pause' + (dispositivoActual ? '?device_id=' + encodeURIComponent(dispositivoActual.id) : ''), { method: 'PUT' });
                 if (r.ok || r.status === 204) {
                     setInfo("⏸ Pista en pausa.");
                     $('playBtn').textContent = '▶️ Reanudar Pista';
